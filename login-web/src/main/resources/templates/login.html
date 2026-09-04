@@ -1,0 +1,12 @@
+<!doctype html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>AAAS Lite · Secure access</title><link rel="stylesheet" href="/assets/app.css"></head>
+<body><main class="login-shell">
+<section class="story"><a class="brand" href="/">aaas<span>lite</span></a><div class="story-copy"><p class="eyebrow">ONE IDENTITY. VERIFIED ACCESS.</p><h1>Your next step.<br>A secure start.</h1><p class="intro">One place to sign in, verify your identity, and access what matters.</p><ol class="journey"><li><span>01</span><div><strong>Sign in securely</strong><p>Use your organization's trusted identity provider.</p></div></li><li><span>02</span><div><strong>Make it yours</strong><p>A quick verification connects you to your account.</p></div></li><li><span>03</span><div><strong>You're ready</strong><p>Continue once your access has been confirmed.</p></div></li></ol></div><p class="footnote">Built around your identity. Protected at every step.</p></section>
+<section class="form-side"><div class="login-card"><div class="pill">SECURE SIGN IN</div><h2>Welcome back.</h2><p class="muted">Continue with your organization to get started.</p>
+<div class="notice" role="status" th:if="${param.error}">We couldn't complete sign-in. Please try again.</div>
+<div class="notice" role="status" th:if="${param.logout}">You have signed out of this application.</div>
+<a th:if="${live}" class="primary" href="/oauth2/authorization/cognito">Continue with your organization <span aria-hidden="true">↗</span></a>
+<button th:unless="${live}" class="primary" disabled>Sign-in is not configured yet</button>
+<p class="setup-note" th:unless="${live}">This is a local preview. Sign-in becomes available when the identity provider is connected.</p>
+<div class="divider"></div><h3>First time here?</h3><p class="muted small">Sign in with your organization first. We'll guide you through identity verification if your account isn't linked yet.</p><p class="security-note">Your password stays with your identity provider.</p></div><footer>AAAS Lite <span>Authentication &amp; verified access</span></footer></section>
+</main></body></html>

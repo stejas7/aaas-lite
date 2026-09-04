@@ -1,0 +1,139 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AAAS Lite Cognito user pool with optional Ping-compatible OIDC federation
+Parameters:
+  DomainPrefix: {Type: String, Description: Globally unique Cognito managed-login domain prefix}
+  LoginCallbackUrl: {Type: String, Default: 'http://localhost:8080/login/oauth2/code/cognito'}
+  LogoutUrl: {Type: String, Default: 'http://localhost:8080/login?logout'}
+  OidcProviderName: {Type: String, Default: PingFederate, AllowedPattern: '[A-Za-z0-9_-]+'}
+  OidcClientId: {Type: String, Default: ''}
+  OidcClientSecret: {Type: String, Default: '', NoEcho: true}
+  OidcIssuer: {Type: String, Default: ''}
+  OidcAuthorizeUrl: {Type: String, Default: ''}
+  OidcTokenUrl: {Type: String, Default: ''}
+  OidcUserInfoUrl: {Type: String, Default: ''}
+  OidcJwksUrl: {Type: String, Default: ''}
+  OidcScopes: {Type: String, Default: 'openid profile email'}
+Conditions:
+  HasOidc: !Not [!Equals [!Ref OidcClientId, '']]
+Resources:
+  LifecycleFunctionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement: [{Effect: Allow, Principal: {Service: lambda.amazonaws.com}, Action: 'sts:AssumeRole'}]
+      Policies:
+        - PolicyName: SetCognitoLifecycle
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action: 'cognito-idp:AdminUpdateUserAttributes'
+                Resource: !Sub 'arn:${AWS::Partition}:cognito-idp:${AWS::Region}:${AWS::AccountId}:userpool/*'
+              - Effect: Allow
+                Action: ['logs:CreateLogGroup', 'logs:CreateLogStream', 'logs:PutLogEvents']
+                Resource: '*'
+  LifecycleFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt LifecycleFunctionRole.Arn
+      Timeout: 5
+      Code:
+        ZipFile: |
+          import boto3
+          cognito = boto3.client('cognito-idp')
+          def handler(event, context):
+              attrs = event.get('request', {}).get('userAttributes', {})
+              if not attrs.get('custom:lifecycle'):
+                  cognito.admin_update_user_attributes(
+                      UserPoolId=event['userPoolId'], Username=event['userName'],
+                      UserAttributes=[{'Name':'custom:lifecycle','Value':'authenticated_unverified'}])
+              return event
+  PreSignupFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      Runtime: python3.13
+      Handler: index.handler
+      Role: !GetAtt LifecycleFunctionRole.Arn
+      Timeout: 5
+      Code:
+        ZipFile: |
+          def handler(event, context):
+              if event.get('triggerSource') == 'PreSignUp_ExternalProvider':
+                  event['response']['autoConfirmUser'] = True
+                  if event.get('request', {}).get('userAttributes', {}).get('email'):
+                      event['response']['autoVerifyEmail'] = True
+              return event
+  UserPool:
+    Type: AWS::Cognito::UserPool
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      UserPoolName: aaas-lite-users
+      UsernameConfiguration: {CaseSensitive: false}
+      AutoVerifiedAttributes: [email]
+      MfaConfiguration: OPTIONAL
+      EnabledMfas: [SOFTWARE_TOKEN_MFA]
+      LambdaConfig:
+        PreSignUp: !GetAtt PreSignupFunction.Arn
+        PostAuthentication: !GetAtt LifecycleFunction.Arn
+      AdminCreateUserConfig: {AllowAdminCreateUserOnly: true}
+      AccountRecoverySetting:
+        RecoveryMechanisms: [{Name: verified_email, Priority: 1}]
+      Schema:
+        - {Name: email, AttributeDataType: String, Required: true, Mutable: true}
+        - {Name: lifecycle, AttributeDataType: String, Mutable: true, StringAttributeConstraints: {MinLength: '1', MaxLength: '64'}}
+  InvokePreSignup:
+    Type: AWS::Lambda::Permission
+    Properties: {Action: 'lambda:InvokeFunction', FunctionName: !Ref PreSignupFunction, Principal: cognito-idp.amazonaws.com, SourceArn: !GetAtt UserPool.Arn}
+  InvokeLifecycle:
+    Type: AWS::Lambda::Permission
+    Properties: {Action: 'lambda:InvokeFunction', FunctionName: !Ref LifecycleFunction, Principal: cognito-idp.amazonaws.com, SourceArn: !GetAtt UserPool.Arn}
+  PoolDomain:
+    Type: AWS::Cognito::UserPoolDomain
+    Properties: {Domain: !Ref DomainPrefix, UserPoolId: !Ref UserPool}
+  OidcProvider:
+    Condition: HasOidc
+    Type: AWS::Cognito::UserPoolIdentityProvider
+    Properties:
+      UserPoolId: !Ref UserPool
+      ProviderName: !Ref OidcProviderName
+      ProviderType: OIDC
+      ProviderDetails:
+        client_id: !Ref OidcClientId
+        client_secret: !Ref OidcClientSecret
+        oidc_issuer: !Ref OidcIssuer
+        authorize_scopes: !Ref OidcScopes
+        authorize_url: !Ref OidcAuthorizeUrl
+        token_url: !Ref OidcTokenUrl
+        attributes_url: !Ref OidcUserInfoUrl
+        jwks_uri: !Ref OidcJwksUrl
+      AttributeMapping: {email: email, name: name, preferred_username: preferred_username}
+  WebClient:
+    Type: AWS::Cognito::UserPoolClient
+    Properties:
+      UserPoolId: !Ref UserPool
+      ClientName: aaas-lite-web
+      GenerateSecret: true
+      WriteAttributes: [email, name, preferred_username]
+      ReadAttributes: [email, name, preferred_username, custom:lifecycle]
+      PreventUserExistenceErrors: ENABLED
+      EnableTokenRevocation: true
+      SupportedIdentityProviders: !If [HasOidc, [COGNITO, !Ref OidcProvider], [COGNITO]]
+      AllowedOAuthFlowsUserPoolClient: true
+      AllowedOAuthFlows: [code]
+      AllowedOAuthScopes: [openid, profile, email, aws.cognito.signin.user.admin]
+      CallbackURLs: [!Ref LoginCallbackUrl]
+      LogoutURLs: [!Ref LogoutUrl]
+      AccessTokenValidity: 5
+      IdTokenValidity: 5
+      RefreshTokenValidity: 1
+      TokenValidityUnits: {AccessToken: minutes, IdToken: minutes, RefreshToken: days}
+      ExplicitAuthFlows: [ALLOW_REFRESH_TOKEN_AUTH]
+Outputs:
+  UserPoolId: {Value: !Ref UserPool}
+  ClientId: {Value: !Ref WebClient}
+  IssuerUri: {Value: !Sub 'https://cognito-idp.${AWS::Region}.amazonaws.com/${UserPool}'}
+  ManagedLoginBaseUrl: {Value: !Sub 'https://${DomainPrefix}.auth.${AWS::Region}.amazoncognito.com'}

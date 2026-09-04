@@ -1,0 +1,14 @@
+server:
+  error:
+    include-message: never
+    include-stacktrace: never
+cognito:
+  region: ${COGNITO_REGION:ap-south-1}
+  pool-id: ${COGNITO_POOL_ID}
+  client-id: ${COGNITO_CLIENT_ID}
+  issuer-uri: ${COGNITO_ISSUER_URI}
+odl:
+  base-url: ${ODL_BASE_URL}
+  service-token: ${ODL_SERVICE_TOKEN}
+aaas:
+  registration-enabled: ${REGISTRATION_ENABLED:false}

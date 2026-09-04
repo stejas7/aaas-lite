@@ -1,0 +1,34 @@
+name: Gradle build and security tests
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.14.4'
+      - run: gradle --no-daemon clean build
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-reports
+          path: '**/build/reports/tests/'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: applications
+          path: |
+            login-web/build/libs/*.jar
+            ace-service/build/libs/*.jar

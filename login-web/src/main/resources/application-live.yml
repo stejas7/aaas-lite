@@ -1,0 +1,23 @@
+server:
+  servlet:
+    session:
+      cookie:
+        secure: ${SESSION_COOKIE_SECURE:true}
+spring:
+  security:
+    oauth2:
+      client:
+        registration:
+          cognito:
+            provider: cognito
+            client-id: ${COGNITO_CLIENT_ID}
+            client-secret: ${COGNITO_CLIENT_SECRET}
+            client-authentication-method: client_secret_basic
+            authorization-grant-type: authorization_code
+            redirect-uri: ${COGNITO_REDIRECT_URI:http://localhost:8080/login/oauth2/code/cognito}
+            scope: openid,profile,email,aws.cognito.signin.user.admin
+        provider:
+          cognito:
+            issuer-uri: ${COGNITO_ISSUER_URI}
+cognito:
+  identity-provider: ${COGNITO_IDENTITY_PROVIDER:}
