@@ -45,7 +45,7 @@ ODL must authenticate ACE, serialize attempts by subject, treat retries idempote
 - Confirm Ping claims and endpoint metadata, add the provider secret using protected deployment parameters, and validate triggers with a non-production tenant.
 - Place the web session in a shared encrypted store for multiple instances; rotate sessions and secrets; complete relying-application handoff and logout decisions.
 - Apply rate limiting, audit events without PII/tokens, operational alerts, HTTPS and private service networking.
-- Review lifecycle initialization against the 2026 Cognito inbound-federation trigger before production; the included post-authentication trigger is a portable baseline and updates are visible on the following token issuance.
+- Lifecycle initialization uses post-confirmation for first federated sign-in and post-authentication for subsequent sign-ins. ACE reads the current Cognito attribute through AdminGetUser, so authorization does not depend on stale ID-token attributes. Validate both trigger paths with the configured tenant.
 
 Direct registration, proprietary MFA, AWL session creation and domain backend implementations are outside this first OIDC login slice.
 

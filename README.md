@@ -65,7 +65,7 @@ Use Java 17 and Gradle 8.14.4+:
 gradle clean build
 ```
 
-GitHub Actions runs the same check. Local source generation could validate source structure because the authoring environment did not contain a JDK/Gradle and blocked dependency downloads; use CI as the authoritative compilation result.
+GitHub Actions has successfully compiled both services, built their executable JARs, and run the test suite. See the [successful build](https://github.com/stejas7/aaas-lite/actions/runs/33863466438). Live Ping/Cognito/ODL integration still requires a configured test environment.
 
 ## Primary references
 

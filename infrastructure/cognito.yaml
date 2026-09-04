@@ -78,6 +78,7 @@ Resources:
       EnabledMfas: [SOFTWARE_TOKEN_MFA]
       LambdaConfig:
         PreSignUp: !GetAtt PreSignupFunction.Arn
+        PostConfirmation: !GetAtt LifecycleFunction.Arn
         PostAuthentication: !GetAtt LifecycleFunction.Arn
       AdminCreateUserConfig: {AllowAdminCreateUserOnly: true}
       AccountRecoverySetting:
